@@ -30,6 +30,8 @@ COPY --from=builder /usr/lib/x86_64-linux-gnu/libk5crypto* /usr/lib/x86_64-linux
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libkeyutils* /usr/lib/x86_64-linux-gnu/
 
 
+EXPOSE 49/tcp
+
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 # https://manpages.ubuntu.com/manpages/xenial/man5/tac_plus.conf.5.html
 # -t to log to console

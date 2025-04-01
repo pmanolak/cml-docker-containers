@@ -1,4 +1,4 @@
-DEST:=../cml-definitions/image-definitions
+DEST:=../cml-definitions/virl-base-images
 TAG := $(shell echo $(VERSION) | tr '[:upper:]~' '[:lower:]-')
 NTAG:=$(NAME)-$(TAG)
 DNT:=$(DEST)/$(NTAG)
