@@ -11,9 +11,10 @@ BOOT=/config/boot.sh
 #   fi
 # done
 
-if [ -f $BOOT ]; then
-    source $BOOT
-fi
+# done in day0 via docker shim
+# if [ -f $BOOT ]; then
+#     source $BOOT
+# fi
 if [ -f $CONFIG ]; then
     cp $CONFIG /etc/frr/frr.conf
 fi

@@ -1,10 +1,15 @@
 # list of subdirectories containing a Dockerfile
 SUBDIRS := $(shell find . -type f -name Dockerfile -exec dirname {} \;)
 
-all: $(SUBDIRS)
+all: $(SUBDIRS) deb
 
 $(SUBDIRS):
 	$(MAKE) -C $@
+
+# build:
+# 	for dir in $(SUBDIRS); do \
+# 			$(MAKE) -C $$dir build; \
+# 	done
 
 clean:
 	for dir in $(SUBDIRS); do \

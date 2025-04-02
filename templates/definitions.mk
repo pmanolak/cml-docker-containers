@@ -7,7 +7,7 @@ DNT  := $(DEST)/$(NTAG)
 
 .PHONY: definitions
 definitions: $(DNT)
-	sha256=`docker image inspect -f '{{ index .Id }}' $(NAME):latest | cut -d':' -f2)` && \
+	sha256=`docker image inspect -f '{{ index .Id }}' $(NAME):$(TAG) | cut -d':' -f2)` && \
   date=`date +"%Y%m%d"` && \
 	cat ../templates/image-definition | sed \
 		-e 's/{{DESCR}}/$(DESCR)/g' \

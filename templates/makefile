@@ -1,5 +1,5 @@
 .PHONY: all
-all: build definitions
+all: build
 
 include vars.mk
 include ../templates/definitions.mk
@@ -10,7 +10,7 @@ clean:
 	-docker image ls --format "{{ .ID }}" $(NAME) | uniq | xargs docker image rm -f
 
 .PHONY: build
-build: Dockerfile $(DNT)
+build: definitions Dockerfile $(DNT)
 	docker buildx build . -t $(NAME) --build-arg uid=2000 --build-arg version=$(VERSION)
 	# docker tag $(NAME):latest $(NTAG)
 	docker tag $(NAME):latest $(NAME):$(TAG)

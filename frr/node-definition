@@ -44,7 +44,7 @@ configuration:
               ]
             },
             "shell": "/bin/bash",
-            "day0cmd": [ "/bin/bash", "/boot.sh" ],
+            "day0cmd": [ "/bin/bash", "/config/boot.sh" ],
             "busybox": true
           }
       - name: node.cfg
