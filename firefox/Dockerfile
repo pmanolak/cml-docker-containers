@@ -34,6 +34,8 @@ RUN apt-get update && \
   apt-get autoremove && apt-get clean && rm -rf /var/lib/apt/lists/* && \
   useradd -l --create-home --shell /bin/bash -u ${uid} --user-group debian
 
+# prevent windows "Welcome to Firefox" and "Firefox privacy notice" tabs
+COPY policies.json /usr/lib/firefox/distribution/policies.json
 USER debian
 COPY i3config /home/debian/.config/i3/config
 COPY start.sh /start.sh

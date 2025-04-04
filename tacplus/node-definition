@@ -33,7 +33,7 @@ configuration:
           key = tacacs123
           accounting file = /var/log/tacplus-acct.log
           acl = default {
-            permit = 0\.0\.0\.0
+            permit = 0.0.0.0
           }
           host = 0.0.0.0 {
             prompt = "TACACS+ auth: "

@@ -39,7 +39,6 @@ configuration:
               "NET_ADMIN",
               "SYS_ADMIN"
             ],
-            "shell": "/bin/bash",
             "day0cmd": [ "/bin/bash", "/boot.sh" ],
             "busybox": true
           }
@@ -65,7 +64,7 @@ device:
       - eth1
       - eth2
       - eth3
-    serial_ports: 2
+    serial_ports: 1
 inherited:
   image:
     ram: true

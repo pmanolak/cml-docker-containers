@@ -1,0 +1,17 @@
+{
+  "policies": {
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "DontCheckDefaultBrowser": true,
+    "Proxy": {
+      "Mode": "none",
+      "HTTPProxy": "manual for mode to enable proxy.example.com:8080",
+      "UseHTTPProxyForAllProtocols": true,
+      "SOCKSProxy": "socks.example.com:8080",
+      "SOCKSVersion": 5,
+      "Passthrough": "localhost, 127.0.0.1",
+      "AutoConfigURL": "http://example.com/proxy.pac",
+      "Lock": false
+    }
+  }
+} 

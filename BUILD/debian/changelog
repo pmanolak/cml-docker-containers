@@ -1,4 +1,14 @@
-refplat-images-docker (1.2) UNRELEASED; urgency=medium
+refplat-images-docker (1.3) unstable; urgency=medium
+
+  * added Firefox policy file to supress initial tabs
+  * added bash, mibs and MOTD to the net-tools container
+  * changed default configuration for
+    * FRR
+    * Tacacs
+
+ -- Ralph Schmieder <rschmied@cisco.com>  Fri, 04 Apr 2025 17:32:45 +0200
+
+refplat-images-docker (1.2) unstable; urgency=medium
 
   * fixes to various containers
     memory setting, node def version

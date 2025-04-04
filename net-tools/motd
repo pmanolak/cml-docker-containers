@@ -1,0 +1,22 @@
+net-tools has the following packages installed:
+
+- mtr -- Full screen ncurses based traceroute tool
+- iperf3 -- Internet Protocol bandwidth measuring tool
+- traceroute -- standard traceroute
+- [f]ping -- ping and flood ping
+- net-snmp -- SNMP related tools like snmpwalk
+- curl -- command line tool for transferring data with URL syntax
+- ssh -- OpenSSH client
+- telnet -- unencrypted remote access
+- netcat -- TCP/IP swiss army knife
+- socat -- multipurpose relay for bidirectional data transfer
+- tcpdump -- command-line network traffic analyzer
+- tshark -- network traffic analyzer - console version
+- vim -- editor
+- nano -- editor
+- less -- editor
+- dig -- DNS related utils
+- yq / jq -- tools to filter and pretty print YAML and JSON, respectively
+- httpie -- cURL like tool for humans
+
+There's also a collection of MIBs in /mibs which can be used with the SNMP tools

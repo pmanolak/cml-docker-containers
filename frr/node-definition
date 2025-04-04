@@ -52,7 +52,7 @@ configuration:
         editable: true
         content: |
           ! FRR Config generated on 2025-01-22 17:55
-          ! by ank-ng
+          ! just an example -- You need to need to change it
           !
           hostname frr-0
           !
