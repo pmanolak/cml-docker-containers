@@ -6,11 +6,6 @@ all: $(SUBDIRS)
 $(SUBDIRS):
 	$(MAKE) -C $@
 
-# build:
-# 	for dir in $(SUBDIRS); do \
-# 			$(MAKE) -C $$dir build; \
-# 	done
-
 clean:
 	for dir in $(SUBDIRS); do \
 			$(MAKE) -C $$dir clean; \
@@ -22,8 +17,6 @@ clean:
 
 deb:
 	cd BUILD && dpkg-buildpackage --build=binary --no-sign --no-check-builddeps
-	# dpkg-buildpackage --build=binary --no-sign --no-check-builddeps
-	# cd BUILD; dpkg-deb --build -Znone refplat-images-docker_all
 
 definitions:
 	for dir in $(SUBDIRS); do \
