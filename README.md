@@ -2,20 +2,20 @@
 
 This repository automates building Docker images and the node/image definition files used by Cisco Modeling Labs (CML). It produces artifacts and a Debian package (.deb) that can be installed on a CML server. The output mirrors the CML server layout so artifacts can be copied directly to `/var/lib/libvirt/images/...`.
 
-Table of contents
+**Table of contents**
 
-[1. Project overview](#1-project-overview)
-[2. Quickstart](#2-quickstart)
-[3. Dependencies](#3-dependencies)
-[4. How discovery & selection work](#4-how-discovery-selection-work)
-[5. Building (local development)](#5-building-local-development)
-[6. Results (what is produced & where)](#6-results-what-is-produced-where)
-[7. Contributing: adding a new container](#7-contributing-adding-a-new-container)
-[8. CI: GitHub Actions, artifacts & releases](#8-ci-github-actions-artifacts-releases)
-[9. Troubleshooting](#9-troubleshooting)
-[10. Special notes (IOS XRd / Netflow / Splunk)](#10-special-notes-ios-xrd-netflow-splunk)
-[11. Pro tips](#11-pro-tips)
-[12. Appendix: examples & useful commands](#12-appendix-examples-useful-commands)
+1. [Project overview](#1-project-overview)
+2. [Quickstart](#2-quickstart)
+3. [Dependencies](#3-dependencies)
+4. [How discovery & selection work](#4-how-discovery-selection-work)
+5. [Building (local development)](#5-building-local-development)
+6. [Results (what is produced & where)](#6-results-what-is-produced-where)
+7. [Contributing: adding a new container](#7-contributing-adding-a-new-container)
+8. [CI: GitHub Actions, artifacts & releases](#8-ci-github-actions-artifacts-releases)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Special notes (IOS XRd / Netflow / Splunk)](#10-special-notes-ios-xrd-netflow-splunk)
+11. [Pro tips](#11-pro-tips)
+12. [Appendix: examples & useful commands](#12-appendix-examples-useful-commands)
 
 ---
 
