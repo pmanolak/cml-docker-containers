@@ -23,6 +23,7 @@ docker: Dockerfile $(DNT)
 		echo "Skipping build in $(CURDIR): .disabled present"; \
 	else \
 		docker buildx build . -t $(NAME):$(TAG) \
+		  --platform linux/amd64 \
 			--build-arg uid=2000 \
 			--build-arg version=$(VERSION) \
 			$(if $(HTTP_PROXY), --build-arg HTTP_PROXY=$(HTTP_PROXY)) \
