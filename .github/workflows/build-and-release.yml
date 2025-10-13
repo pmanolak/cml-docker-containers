@@ -1,4 +1,7 @@
-name: Build (sequential) and Release
+name: Build and Release
+
+permissions:
+   contents: write
 
 on:
   push:
@@ -27,15 +30,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure Docker available (fallback)
-        run: |
-          if ! command -v docker >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y docker.io
-            sudo systemctl enable --now docker
-          fi
-          docker --version
-
       - name: Discover top-level containers (Dockerfile && not .disabled)
         id: discover
         run: |
@@ -63,8 +57,6 @@ jobs:
             echo "=== Building: $c ==="
             make -C "$c"
           done < containers.list
-          echo "Contents of BUILD/debian:"
-          ls -lah BUILD/debian || true
 
       - name: Install packaging tools
         run: |
@@ -72,6 +64,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends devscripts dpkg-dev build-essential fakeroot debhelper
 
       - name: Bump changelog with timestamped version and exact message
+        id: bump
         env:
           DEBFULLNAME: "${{ github.actor }} (GitHub Actions)"
           DEBEMAIL: "${{ github.actor }}@users.noreply.github.com"
@@ -86,7 +79,7 @@ jobs:
             echo "Cannot determine base version from BUILD/debian/changelog" >&2
             exit 1
           fi
-          ts=$(date -u +%Y%m%d%H)   # UTC timestamp YYYYMMDDHH
+          ts=$(date -u +%Y%m%d%H%M%S)   # UTC timestamp YYYYMMDDHHMMSS
           new="${base}+${ts}"
           datehuman=$(date -u +"%Y-%m-%d %H:%M:%SZ")
           echo "Bumping changelog to ${new}"
@@ -97,19 +90,44 @@ jobs:
           dch -v "$new" "auto-built on github on ${datehuman}"
           echo "Top of BUILD/debian/changelog:"
           sed -n '1,12p' debian/changelog
+          # expose ts as a step output for later steps
+          echo "ts=$ts" >> "$GITHUB_OUTPUT"
 
       - name: Build .deb package
         run: |
           set -euo pipefail
           make deb
 
-      - name: Upload artifacts (images and .deb)
+      - name: Upload packaging artifacts (deb, changes, buildinfo)
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: deb-artifacts
           path: |
-            BUILD/debian
-            BUILD/*.deb
+            *.deb
+            *.changes
+            *.buildinfo
+          retention-days: 10
+
+      - name: Pack refplat var/lib subtree as pruned tarball
+        run: |
+          set -euo pipefail
+          src_dir="BUILD/debian/refplat-images-docker"
+          ts="${{ steps.bump.outputs.ts }}"
+          out_tar="docker-refplat-images-${ts}.tar.gz"
+          if [ -d "${src_dir}/var/lib" ]; then
+            echo "Creating ${out_tar} containing var/lib/..."
+            (cd "${src_dir}" && tar -czf "../../../docker-refplat-images-${ts}.tar.gz" var/lib)
+            ls -lh "${out_tar}" || true
+          else
+            echo "No var/lib subtree found at ${src_dir}/var/lib — skipping tar creation."
+          fi
+
+      - name: Upload pruned refplat images tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: refplat-images-var-lib
+          path: docker-refplat-images-*.tar.gz
+          retention-days: 10
 
       - name: Create GitHub Release (optional)
         if: >
@@ -140,7 +158,8 @@ jobs:
             exit 1
           fi
           upload_url=${upload_url%\{*}
-          for f in BUILD/*.deb BUILD/debian/*.tar.gz; do
+          # attach only Debian-related artifacts + the pruned images tarball
+          for f in *.deb *.changes *.buildinfo docker-refplat-images-*.tar.gz; do
             [ -f "$f" ] || continue
             fname=$(basename "$f")
             echo "Uploading $fname"

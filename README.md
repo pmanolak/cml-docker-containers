@@ -1,53 +1,285 @@
 # Automation for building CML Docker Containers
 
-This repository contains the automation and scripts to build the Docker
-container images, node definition and image definitions which are included in
-the Cisco Modeling Labs product.
+This repository automates building Docker images and the node/image definition files used by Cisco Modeling Labs (CML). It produces artifacts and a Debian package (.deb) that can be installed on a CML server. The output mirrors the CML server layout so artifacts can be copied directly to `/var/lib/libvirt/images/...`.
 
-In addition, there are two node definitions which are not included:
+<!--toc:start-->
+- [Automation for building CML Docker Containers](#automation-for-building-cml-docker-containers)
+  - [Project overview](#project-overview)
+  - [Quickstart](#quickstart)
+  - [Dependencies](#dependencies)
+  - [How discovery & selection work](#how-discovery-selection-work)
+  - [Building (local development)](#building-local-development)
+  - [Results (what is produced & where)](#results-what-is-produced-where)
+  - [Contributing: Adding a new container](#contributing-adding-a-new-container)
+  - [CI: GitHub Actions, artifacts & releases](#ci-github-actions-artifacts-releases)
+    - [Manual triggers](#manual-triggers)
+    - [Permissions](#permissions)
+    - [Artifact retention and storage](#artifact-retention-and-storage)
+  - [Troubleshooting](#troubleshooting)
+  - [Handling Multi-Container (Docker Compose) Solutions](#handling-multi-container-docker-compose-solutions)
+  - [Special nodes](#special-nodes)
+    - [IOS XRd](#ios-xrd)
+    - [Netflow](#netflow)
+    - [Splunk](#splunk)
+  - [Pro tips](#pro-tips)
+  - [Appendix: examples & useful commands](#appendix-examples-useful-commands)
+<!--toc:end-->
 
-- **IOS XRd** [Binary IOS XRd images can be downloaded here](https://software.cisco.com/download/home/286331236/type).
-- **Netflow** This requires a very old Debian distro, the netflow package has
-disappeared in newer Debian distros.
+---
+
+## Project overview
+
+This repository contains automation and templates to build container images, node definitions and image definitions for use with CML (tested for CML 2.9+). Most container specs in this repository pull software from Docker Hub or public resources; a few require additional manual content (see Special nodes).
+
+## Quickstart
+
+Build everything locally:
+
+```sh
+# build all enabled containers and generate definitions
+make
+
+# build a single container (development)
+make -C <container-dir>
+
+# build the Debian package (requires packaging tools)
+make deb
+```
+
+Inspect generated files and package:
+
+- Definitions and images: `BUILD/debian/refplat-images-docker/var/lib/libvirt/images/...`
+- Debian package: `*.deb`, `*.buildinfo`, `*.changelog`
 
 ## Dependencies
 
-For this to work, it is recommended to run this inside of a Ubuntu or Debian VM
-with development packages and Docker installed. In particular
+Recommended environment: Ubuntu 24.04 (local VM or developer machine).
 
-- Docker <https://docs.docker.com/engine/install/ubuntu/> or <https://docs.docker.com/engine/install/debian/>
+Required for building and packaging:
+
+- Docker (engine/CLI)
+
+For building the .deb package you also need:
+
 - dpkg-dev
 - devscripts
+- fakeroot
+- debhelper
+- build-essential
 
-If no Debian package should be built, then only `make` is required which can be
-installed using `apt install make`.
+If you only need to build images (no Debian package), you only need `make` and Docker.
 
-## Building
+## How discovery & selection work
 
-Either run `make` at the top level to build all container images and the
-associated node and image definitions. Or `cd` into a specific directory and
-run `make` there.
+- Discovery: the build system (and CI) scans top-level subdirectories for a `Dockerfile`. Each such directory is treated as a container specification.
+- Skip / opt-out: to exclude a container from builds (both local and CI), place an empty file named `.disabled` in that container directory (for example: `chrome/.disabled`). The top-level Makefile and per-directory recipes honor this file and will skip building and definition generation, printing a clear message.
+- Output layout: builders and templates create the YAML files and image tarballs under `BUILD/debian/refplat-images-docker/var/lib/libvirt/images/...` so the structure matches what CML expects on the server.
 
-> [!NOTE]
-> netflow and IOS XRd are "off" by default. To turn either of them "on", rename
-> the Dockerfile in the respective directory, removing the "-off" part from the
-> filename.
+## Building (local development)
 
-## Results
+1. Build a single container:
 
-The files are built in the `BUILD/debian/refplat-images-docker/...` directory.
-Copy the resulting node and image definitions to your CML server into the same
-place `/var/lib/libvirt/images/...`.
+```sh
+make chrome   # example: builds chrome container and definitions
+```
 
-As an option, a Debian package can be built which can also be installed on the
-CML server. The package build process can be started via `make deb` and
-requires the aforementioned dev tools and scripts installed.
+1. Build everything:
 
-## Specific note on XRd
+```sh
+make
+```
 
-The file that can be downloaded from CCO is e.g.
-`xrd-control-plane-container-x86.24.4.2.tgz` for version 24.4.2. This is a
-tar/gz archive which includes the actual Docker image. Put the downloaded file
-into the `xrd` directory, make sure the version matches what is defined in the
-`vars` file. The process will then extract the needed image file from the
-archive and process it.
+1. Build the Debian package:
+
+```sh
+make deb
+```
+
+**Notes:**
+
+- Per-container Makefiles usually soft-link to  `../templates/makefile`. Use an existing container (for example `chrome/` or `nginx/`) as a template when adding a new container.
+- If a `.disabled` file exists in a container directory, `make -C <dir>` will skip building that container and print a message.
+
+## Results (what is produced & where)
+
+- Image tarballs and YAML definitions are placed under:
+
+```plain
+BUILD/debian/refplat-images-docker/var/lib/libvirt/images/<...>
+```
+
+- The Debian package is produced as `<package>.deb` (see `make deb`).
+
+The generated tree mirrors the CML server layout so files may be copied to `/var/lib/libvirt/images/...` on the server.
+
+## Contributing: Adding a new container
+
+Follow these guidelines to add a container that builds locally and in CI.
+
+Minimum directory layout (required files)
+
+```plain
+mycontainer/
+  Dockerfile                 # required for discovery
+  Makefile                   # usually: soft-link to ../templates/makefile
+  vars.mk                    # required metadata (see below)
+  node-definition            # required: template used for node YAML
+```
+
+**Important:** `node-definition` is required: the `definitions` recipe uses this template to create the YAML file placed in the `BUILD/debian/refplat-images-docker/` tree.
+
+Minimum `vars.mk` example
+
+```makefile
+NAME=mycontainer
+VERSION=1.0
+DESC=Short description
+FULLDESC=Longer, user-facing description
+```
+
+Requirements and recommendations
+
+- `Dockerfile` must exist for discovery.
+- Prefer to `include ../templates/makefile` in your `Makefile` unless you have specialized needs.
+- Output expectations:
+  - Image tarball (e.g., `$(NTAG).tar.gz`) must appear under `BUILD/debian/refplat-images-docker/var/lib/libvirt/images/...`.
+  - Definition YAMLs must be generated into that same area.
+- To opt out of builds, add an empty `.disabled` file in the container directory.
+
+Local test flow
+
+1. Build image and tarball:
+
+```sh
+make -C mycontainer
+```
+
+1. Generate definitions (if not already generated by build):
+
+```sh
+make -C mycontainer definitions
+```
+
+1. Build the package locally:
+
+```sh
+make deb
+```
+
+1. Confirm files:
+
+- `BUILD/debian/refplat-images-docker/var/lib/libvirt/images/...`
+- `*.deb`
+
+CI test (manual run)
+
+```sh
+gh workflow run build-and-release.yml --ref <your-branch> -f create_release=false
+```
+
+## CI: GitHub Actions, artifacts & releases
+
+Behavior
+
+- The workflow discovers directories containing `Dockerfile` and without `.disabled` and builds them sequentially.
+- After image builds, the workflow updates `BUILD/debian/changelog` and sets a timestamped package version: `<base>+YYYYMMDDHHMMSS` (UTC). The changelog entry message is exactly `auto-built on github on <YYYY-MM-DD HH:MM:SSZ>`.
+- The workflow builds the `.deb` package and uploads Debian packaging artifacts: `*.deb`, `*.changes`, and `*.buildinfo`. It also creates a pruned tarball containing only the `var/lib/...` subtree named like `docker-refplat-images-<ts>.tar.gz` and uploads that tarball as an artifact and (optionally) attaches it to a GitHub Release.
+
+### Manual triggers
+
+Use the Actions UI "Run workflow" button or the GitHub CLI:
+
+```sh
+# run workflow on 'dev' without creating a release
+gh workflow run build-and-release.yml --ref dev -f create_release=false
+
+# run and create a release
+gh workflow run build-and-release.yml --ref main -f create_release=true -f release_tag=v1.2.3 -f release_name="Release name"
+```
+
+### Permissions
+
+- The workflow requires `permissions: contents: write` to create releases using the injected `GITHUB_TOKEN`. If your organization restricts this, use a PAT stored as a repository secret for the release steps or ask an admin to allow write permissions for the workflow.
+
+### Artifact retention and storage
+
+- Actions artifacts are retained for a limited period; this repository configures `retention-days: 10` for uploaded artifacts.
+- Files attached to GitHub Releases persist until manually deleted.
+
+## Troubleshooting
+
+- **Build not skipped even though `.disabled` exists**: ensure the `.disabled` file is in the container directory (e.g., `chrome/.disabled`) and you are running the updated Makefiles. The repository Makefiles include guards that skip builds and definitions when `.disabled` is present.
+
+- **`docker image inspect` or "No such image" errors when generating definitions**: build the image first (`make -C <dir>`) before running `make definitions`. The `definitions` target now checks for the image and will skip if it is missing.
+
+- **CI release step fails with `Resource not accessible by integration` (403)**: confirm `permissions: contents: write` is set and allowed for workflows. If the organization blocks write tokens, use a PAT in repository secrets and modify the release step to use it.
+
+- **Artifacts are large**: consider attaching only the `.deb` to Releases for long-term storage or hosting very large artifacts externally.
+
+## Handling Multi-Container (Docker Compose) Solutions
+
+Cisco Modeling Labs (CML) is designed to treat each node in a topology as a single, self-contained service or application. While it might be tempting to directly deploy multi-container applications, often defined using `docker-compose`, into CML by attempting to split them into individual CML nodes, this approach is generally not recommended and can lead to significant complications.
+
+**Why direct decomposition of Docker Compose is problematic in CML:**
+
+- **Single Node, Single Container Model**: CML's architecture assumes a one-to-one relationship between a CML node and a container image. `docker-compose` solutions, by definition, orchestrate multiple containers that are tightly coupled and rely on specific internal networking configurations managed by `docker-compose`.
+- **Networking Complexity**: `docker-compose` automatically sets up internal networks and service discovery for its constituent containers. Trying to replicate this complex internal networking using CML's external connections between individual nodes is incredibly difficult and prone to errors. CML's fabric is not designed to manage the intricate inter-container communication typically handled by `docker-compose`.
+- **Increased Potential for Errors**: Attempting to manually stitch together `docker-compose` components as separate CML nodes can lead to misconfigurations, broken dependencies, and unpredictable behavior, making troubleshooting very challenging.
+
+**Recommended Approach: Utilize an Ubuntu VM Node for Docker Compose Solutions**
+
+For complex, multi-container applications that require `docker-compose` orchestration (e.g., Netbox, GitLab), the recommended and most robust solution within CML is to deploy them inside a single Ubuntu virtual machine (VM) node. This approach leverages the VM's capabilities to host the entire `docker-compose` environment.
+
+**Steps for deploying a Docker Compose solution in a CML Ubuntu VM:**
+
+1. **Add an Ubuntu Node**: In your CML lab, add an Ubuntu VM node to your topology.
+1. **Install Docker and Docker Compose**: Once the Ubuntu VM is running, connect to it and install Docker Engine and Docker Compose (or Docker CLI with Compose features) within the VM.
+1. **Deploy your Application**: Copy your `docker-compose.yml` file and any necessary application data into the Ubuntu VM.
+1. **Run Docker Compose**: Execute `docker-compose up -d` (or `docker compose up -d`) within the Ubuntu VM to start your multi-container application.
+1. **Create a Custom Image (Optional but Recommended)**: After successfully deploying and configuring your application within the Ubuntu VM, you can create a custom image from its current state. This allows you to save the pre-configured VM as a new, custom node type, which can then be easily reused in future labs without repeating the setup steps. This custom image acts as a 'snapshot' of your configured environment.
+
+This method ensures that the `docker-compose` application runs in its intended environment, with its internal networking and dependencies managed correctly, while CML interacts with this single, self-contained Ubuntu VM node. This aligns with CML's design philosophy and provides a much more stable and manageable solution for advanced container deployments.
+
+## Special nodes
+
+### IOS XRd
+
+XRd builds require a binary XRd container from Cisco (licensing). Place the downloaded file (for example `xrd-control-plane-container-x86.<version>.tgz`) into the `xrd/` directory and ensure `vars.mk` matches the version. The build process will extract and process that archive.
+
+### Netflow
+
+Netflow depends on an older Debian package that is not present in modern distributions; Netflow is disabled by default.
+
+### Splunk
+
+Splunk images are large and disabled by default. Consider keeping Splunk out of automated builds unless required.
+
+## Pro tips
+
+- Copy an existing container directory (e.g., `chrome/` or `nginx/`) when creating a new container — it speeds onboarding and avoids missing variables.
+- Keep Docker images small to reduce CI time and storage usage.
+- Use the `gh` CLI to trigger workflows and inspect runs (`gh run list`, `gh run view <id>`).
+
+## Appendix: examples & useful commands
+
+- Example skeleton
+
+```plain
+mycontainer/
+  Dockerfile
+  Makefile (soft-link to ../templates/makefile)
+  vars.mk
+  node-definition
+```
+
+- Useful CI command examples
+
+```sh
+# run workflow on a branch without release
+gh workflow run build-and-release.yml --ref dev -f create_release=false
+
+# trigger release via workflow dispatch
+gh workflow run build-and-release.yml --ref main -f create_release=true -f release_tag=v1.2.3 -f release_name="Release name"
+```
+
+---
