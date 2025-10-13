@@ -1,0 +1,149 @@
+name: Build (sequential) and Release
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create GitHub release from built artifacts'
+        required: false
+        default: 'false'
+      release_tag:
+        description: 'Optional release tag to use when creating a release'
+        required: false
+        default: ''
+      release_name:
+        description: 'Optional release name'
+        required: false
+        default: ''
+
+jobs:
+  build-and-package:
+    name: Build containers, package .deb, optional release
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure Docker available (fallback)
+        run: |
+          if ! command -v docker >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y docker.io
+            sudo systemctl enable --now docker
+          fi
+          docker --version
+
+      - name: Discover top-level containers (Dockerfile && not .disabled)
+        id: discover
+        run: |
+          set -euo pipefail
+          containers=()
+          for d in ./*/; do
+            [ -d "$d" ] || continue
+            dir="${d#./}"
+            dir="${dir%/}"
+            if [ -f "${dir}/Dockerfile" ] && [ ! -f "${dir}/.disabled" ]; then
+              containers+=("$dir")
+            fi
+          done
+          printf '%s\n' "${containers[@]}" > containers.list
+          echo "discovered=$(wc -l < containers.list || true)" >> "$GITHUB_OUTPUT"
+
+      - name: Build each container sequentially
+        run: |
+          set -euo pipefail
+          if [ ! -f containers.list ]; then
+            echo "No containers found; nothing to build."
+            exit 0
+          fi
+          while IFS= read -r c; do
+            echo "=== Building: $c ==="
+            make -C "$c"
+          done < containers.list
+          echo "Contents of BUILD/debian:"
+          ls -lah BUILD/debian || true
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends devscripts dpkg-dev build-essential fakeroot debhelper
+
+      - name: Bump changelog with timestamped version and exact message
+        env:
+          DEBFULLNAME: "${{ github.actor }} (GitHub Actions)"
+          DEBEMAIL: "${{ github.actor }}@users.noreply.github.com"
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # read current version from BUILD/debian/changelog
+          version=$(dpkg-parsechangelog -l BUILD/debian/changelog -SVersion)
+          base=${version%%-*}
+          if [ -z "$base" ]; then
+            echo "Cannot determine base version from BUILD/debian/changelog" >&2
+            exit 1
+          fi
+          ts=$(date -u +%Y%m%d%H)   # UTC timestamp YYYYMMDDHH
+          new="${base}+${ts}"
+          datehuman=$(date -u +"%Y-%m-%d %H:%M:%SZ")
+          echo "Bumping changelog to ${new}"
+          cd BUILD
+          export DEBFULLNAME="${DEBFULLNAME}"
+          export DEBEMAIL="${DEBEMAIL}"
+          # exact requested message
+          dch -v "$new" "auto-built on github on ${datehuman}"
+          echo "Top of BUILD/debian/changelog:"
+          sed -n '1,12p' debian/changelog
+
+      - name: Build .deb package
+        run: |
+          set -euo pipefail
+          make deb
+
+      - name: Upload artifacts (images and .deb)
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            BUILD/debian
+            BUILD/*.deb
+
+      - name: Create GitHub Release (optional)
+        if: >
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # determine tag to use
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          elif [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            tag="${{ github.event.inputs.release_tag }}"
+          else
+            tag="ci-${GITHUB_RUN_NUMBER}"
+          fi
+          name="${{ github.event.inputs.release_name }}"
+          [ -n "$name" ] || name="Automated release ${tag}"
+          body="Automated release created by workflow run $GITHUB_RUN_NUMBER (commit ${GITHUB_SHA:0:7})"
+          echo "Creating release $tag"
+          api_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases"
+          release_response=$(curl -s -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Content-Type: application/json" \
+            -d "$(printf '{"tag_name":"%s","name":"%s","body":"%s","draft":false,"prerelease":false}' "$tag" "$name" "$body")" "$api_url")
+          upload_url=$(echo "$release_response" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('upload_url',''))")
+          if [ -z "$upload_url" ]; then
+            echo "Failed to create release: $release_response" >&2
+            exit 1
+          fi
+          upload_url=${upload_url%\{*}
+          for f in BUILD/*.deb BUILD/debian/*.tar.gz; do
+            [ -f "$f" ] || continue
+            fname=$(basename "$f")
+            echo "Uploading $fname"
+            curl --silent -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Content-Type: application/octet-stream" \
+              --data-binary @"$f" "$upload_url?name=$fname"
+          done
