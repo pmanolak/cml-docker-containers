@@ -99,28 +99,37 @@ jobs:
           echo "Artifacts in ./artifacts:"
           ls -la artifacts || true
 
-      - name: "Guard: ensure build was tag-triggered (auto path)"
+      - name: "Guard: ensure build was tag-triggered (downstream)"
+        if: github.event_name == 'workflow_run'
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            if [ ! -f artifacts/build-metadata.json ]; then
-              echo "No build-metadata.json found; skipping release."
-              exit 0
-            fi
-            if ! command -v jq >/dev/null 2>&1; then
-              echo "jq not found - installing"
-              sudo apt-get update
-              sudo apt-get install -y jq
-            fi
-            REF=$(jq -r '.ref // empty' artifacts/build-metadata.json || true)
-            echo "Build metadata ref=${REF}"
-            case "$REF" in
-              refs/tags/*) echo "Build was triggered by tag ${REF#refs/tags/}" ;;
-              *) echo "Build was not triggered by a tag; skipping release."; exit 0 ;;
-            esac
-          else
-            echo "Manual run; continuing"
+          if [ ! -f artifacts/build-metadata.json ]; then
+            echo "No build-metadata.json found; skipping release."
+            exit 0
           fi
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found - installing"
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends jq
+            sudo apt-get clean
+            sudo rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /usr/share/groff/* /usr/share/info/*
+          fi
+          REF=$(jq -r '.ref // empty' artifacts/build-metadata.json || true)
+          echo "Upstream build metadata ref=${REF}"
+          case "$REF" in
+            refs/tags/*) echo "Upstream build was triggered by tag ${REF#refs/tags/}" ;;
+            *) echo "Upstream build was not tag-triggered; skipping release."; exit 0 ;;
+          esac
+
+      - name: "Log: tag push detected"
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "Tag push detected: ${GITHUB_REF#refs/tags/} — proceeding with release"
+
+      - name: "Log: manual run detected"
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Manual workflow_dispatch run - proceeding with release"
 
       - name: Import GPG key
         id: import_gpg
