@@ -31,7 +31,8 @@ jobs:
     name: Sign artifacts and create GitHub Release
     runs-on: ubuntu-24.04
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout (for helper scripts)
         uses: actions/checkout@v4
