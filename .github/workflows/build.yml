@@ -1,26 +1,9 @@
 name: Build
 
-permissions:
-   contents: write
-
 on:
   push:
     branches: [ "main" ]
     tags: [ "v*" ]
-  workflow_dispatch:
-    inputs:
-      create_release:
-        description: 'Create GitHub release from built artifacts'
-        required: false
-        default: 'false'
-      release_tag:
-        description: 'Optional release tag to use when creating a release'
-        required: false
-        default: ''
-      release_name:
-        description: 'Optional release name'
-        required: false
-        default: ''
 
 jobs:
   build:
@@ -43,20 +26,20 @@ jobs:
               containers+=("$dir")
             fi
           done
-          printf '%s\n' "${containers[@]}" > containers.list
-          echo "discovered=$(wc -l < containers.list || true)" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "${containers[@]}" > container_list
+          echo "discovered=$(wc -l < container_list || true)" >> "$GITHUB_OUTPUT"
 
       - name: Build each container sequentially
         run: |
           set -euo pipefail
-          if [ ! -f containers.list ]; then
+          if [ ! -f container_list ]; then
             echo "No containers found; nothing to build."
             exit 0
           fi
           while IFS= read -r c; do
             echo "=== Building: $c ==="
             make -C "$c"
-          done < containers.list
+          done < container_list
 
       - name: Install packaging tools
         run: |
@@ -91,7 +74,7 @@ jobs:
           echo "Top of BUILD/debian/changelog:"
           sed -n '1,12p' debian/changelog
 
-          # create build metadata for downstream release job (omit ts; release can create its own timestamp)
+          # create build metadata for downstream release job
           cd ..
           printf '%s\n' "{\"ts\":\"${ts}\",\"version\":\"${new}\",\"run_id\":${{ github.run_id }}, \"commit\":\"${GITHUB_SHA}\"}" > build-metadata.json
 
