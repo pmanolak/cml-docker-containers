@@ -72,29 +72,31 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          # read current version from BUILD/debian/changelog
           version=$(dpkg-parsechangelog -l BUILD/debian/changelog -SVersion)
           base=${version%%-*}
           if [ -z "$base" ]; then
             echo "Cannot determine base version from BUILD/debian/changelog" >&2
             exit 1
           fi
-          ts=$(date -u +%Y%m%d%H%M%S)
+          ts=$(date -u +%Y%m%d%H%M%S)   # UTC timestamp YYYYMMDDHHMMSS
           new="${base}+${ts}"
           datehuman=$(date -u +"%Y-%m-%d %H:%M:%SZ")
           echo "Bumping changelog to ${new}"
           cd BUILD
           export DEBFULLNAME="${DEBFULLNAME}"
           export DEBEMAIL="${DEBEMAIL}"
+          # exact requested message
           dch -v "$new" "auto-built on github on ${datehuman}"
           echo "Top of BUILD/debian/changelog:"
           sed -n '1,12p' debian/changelog
-          echo "ts=$ts" >> "$GITHUB_OUTPUT"
-          # create build metadata for downstream release job
-          # we write metadata at repo root
+
+          # create build metadata for downstream release job (omit ts; release can create its own timestamp)
           cd ..
           cat > build-metadata.json <<EOF
-{"ts":"${ts}","version":"${new}","run_id":${{ github.run_id }},"commit":"${GITHUB_SHA}"}
+{"version":"${new}","run_id":${{ github.run_id }},"commit":"${GITHUB_SHA}"}
 EOF
+
 
       - name: Build .deb package
         run: |
