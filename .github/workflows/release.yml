@@ -45,10 +45,19 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Install signing tools
+      - name: Install signing tools and ensure gh CLI
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends gnupg2 curl devscripts || true
+          if ! command -v gh >/dev/null 2>&1; then
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            sudo chmod 644 /usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y gh
+          else
+            gh --version
+          fi
 
       - name: Create detached ASCII signatures for artifacts
         env:
@@ -115,29 +124,18 @@ jobs:
           fi
           upload_url=${upload_url%\{*}
 
-          # Create an ENV variable with upload_url for subsequent steps
+          # Create an ENV variable with upload_url and tag for subsequent steps
           echo "UPLOAD_URL=${upload_url}" >> $GITHUB_ENV
+          echo "RELEASE_TAG=${tag}" >> $GITHUB_ENV
 
-      - name: Upload release assets (deb, changes, buildinfo)
-        uses: actions/upload-release-asset@v4
-        with:
-          upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: ./artifacts
-          asset_name: deb-artifacts-${{ inputs.build_run_id }}.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload individual artifacts
+      - name: Upload individual artifacts via gh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           cd artifacts
           for f in *.deb *.changes *.buildinfo docker-refplat-images-*.tar.gz *.asc; do
             [ -f "$f" ] || continue
-            echo "Uploading $f via upload-release-asset action"
-            echo "::group::upload $f"
-            gh api --silent -X POST \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: application/octet-stream" \
-              --input "$(pwd)/$f" \
-              "${upload_url}?name=$(basename $f)" || echo "upload failed for $f"
-            echo "::endgroup::"
+            echo "Uploading $f via gh release upload"
+            gh release upload "${RELEASE_TAG}" "$f" || echo "upload failed for $f"
           done
