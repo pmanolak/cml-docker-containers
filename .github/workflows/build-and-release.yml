@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build
 
 permissions:
    contents: write
@@ -23,8 +23,8 @@ on:
         default: ''
 
 jobs:
-  build-and-package:
-    name: Build containers, package .deb, optional release
+  build:
+    name: Build containers and package .deb
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -72,41 +72,34 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # read current version from BUILD/debian/changelog
           version=$(dpkg-parsechangelog -l BUILD/debian/changelog -SVersion)
           base=${version%%-*}
           if [ -z "$base" ]; then
             echo "Cannot determine base version from BUILD/debian/changelog" >&2
             exit 1
           fi
-          ts=$(date -u +%Y%m%d%H%M%S)   # UTC timestamp YYYYMMDDHHMMSS
+          ts=$(date -u +%Y%m%d%H%M%S)
           new="${base}+${ts}"
           datehuman=$(date -u +"%Y-%m-%d %H:%M:%SZ")
           echo "Bumping changelog to ${new}"
           cd BUILD
           export DEBFULLNAME="${DEBFULLNAME}"
           export DEBEMAIL="${DEBEMAIL}"
-          # exact requested message
           dch -v "$new" "auto-built on github on ${datehuman}"
           echo "Top of BUILD/debian/changelog:"
           sed -n '1,12p' debian/changelog
-          # expose ts as a step output for later steps
           echo "ts=$ts" >> "$GITHUB_OUTPUT"
+          # create build metadata for downstream release job
+          # we write metadata at repo root
+          cd ..
+          cat > build-metadata.json <<EOF
+{"ts":"${ts}","version":"${new}","run_id":${{ github.run_id }},"commit":"${GITHUB_SHA}"}
+EOF
 
       - name: Build .deb package
         run: |
           set -euo pipefail
           make deb
-
-      - name: Upload packaging artifacts (deb, changes, buildinfo)
-        uses: actions/upload-artifact@v4
-        with:
-          name: deb-artifacts
-          path: |
-            *.deb
-            *.changes
-            *.buildinfo
-          retention-days: 10
 
       - name: Pack refplat var/lib subtree as pruned tarball
         run: |
@@ -122,47 +115,14 @@ jobs:
             echo "No var/lib subtree found at ${src_dir}/var/lib — skipping tar creation."
           fi
 
-      - name: Upload pruned refplat images tarball
+      - name: Upload packaging artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: refplat-images-var-lib
-          path: docker-refplat-images-*.tar.gz
+          name: deb-artifacts-${{ github.run_id }}
+          path: |
+            *.deb
+            *.changes
+            *.buildinfo
+            docker-refplat-images-*.tar.gz
+            build-metadata.json
           retention-days: 10
-
-      - name: Create GitHub Release (optional)
-        if: >
-          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # determine tag to use
-          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            tag="${GITHUB_REF#refs/tags/}"
-          elif [ -n "${{ github.event.inputs.release_tag }}" ]; then
-            tag="${{ github.event.inputs.release_tag }}"
-          else
-            tag="ci-${GITHUB_RUN_NUMBER}"
-          fi
-          name="${{ github.event.inputs.release_name }}"
-          [ -n "$name" ] || name="Automated release ${tag}"
-          body="Automated release created by workflow run $GITHUB_RUN_NUMBER (commit ${GITHUB_SHA:0:7})"
-          echo "Creating release $tag"
-          api_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases"
-          release_response=$(curl -s -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Content-Type: application/json" \
-            -d "$(printf '{"tag_name":"%s","name":"%s","body":"%s","draft":false,"prerelease":false}' "$tag" "$name" "$body")" "$api_url")
-          upload_url=$(echo "$release_response" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('upload_url',''))")
-          if [ -z "$upload_url" ]; then
-            echo "Failed to create release: $release_response" >&2
-            exit 1
-          fi
-          upload_url=${upload_url%\{*}
-          # attach only Debian-related artifacts + the pruned images tarball
-          for f in *.deb *.changes *.buildinfo docker-refplat-images-*.tar.gz; do
-            [ -f "$f" ] || continue
-            fname=$(basename "$f")
-            echo "Uploading $fname"
-            curl --silent -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Content-Type: application/octet-stream" \
-              --data-binary @"$f" "$upload_url?name=$fname"
-          done

@@ -1,0 +1,125 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: 'Run ID of the build that produced artifacts (artifact name is deb-artifacts-<run_id>)'
+        required: true
+        default: ''
+      release_tag:
+        description: 'Optional release tag to use when creating a release'
+        required: false
+        default: ''
+      release_name:
+        description: 'Optional release name'
+        required: false
+        default: ''
+
+jobs:
+  release:
+    name: Sign artifacts and create GitHub Release
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout (for helper scripts)
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-artifacts-${{ inputs.build_run_id }}
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Artifacts in ./artifacts:"
+          ls -la artifacts || true
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Install signing tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnupg2 curl devscripts || true
+
+      - name: Create detached ASCII signatures for artifacts
+        env:
+          GPG_FPR: ${{ steps.import_gpg.outputs.fingerprint }}
+          PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          cd artifacts
+          export GNUPGHOME="${GNUPGHOME:-$HOME/.gnupg}"
+          chmod 700 "$GNUPGHOME" || true
+
+          for f in *.deb *.changes *.buildinfo docker-refplat-images-*.tar.gz; do
+            [ -f "$f" ] || continue
+            echo "Signing $f -> ${f}.asc"
+            gpg --batch --yes --pinentry-mode loopback \
+                --passphrase "${PASSPHRASE}" \
+                --local-user "${GPG_FPR}" \
+                --armor --output "${f}.asc" --detach-sign "$f"
+          done
+
+      - name: (Optional) Debian-style sign .changes with debsign
+        if: always()
+        env:
+          GPG_FPR: ${{ steps.import_gpg.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          cd artifacts
+          if command -v debsign >/dev/null 2>&1; then
+            for ch in *.changes; do
+              [ -f "$ch" ] || continue
+              echo "Attempting debsign on $ch (debian-style signature)"
+              debsign -k"${GPG_FPR}" "$ch" || echo "debsign failed for $ch; skipping debsign"
+            done
+          else
+            echo "debsign not installed; skipping Debian-native signing"
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd artifacts
+
+          # determine tag to use
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            tag="${{ inputs.release_tag }}"
+          else
+            tag="build-${{ inputs.build_run_id }}"
+          fi
+
+          name="${{ inputs.release_name }}"
+          [ -n "$name" ] || name="Automated release ${tag}"
+          body="Automated release for build run ${{ inputs.build_run_id }}"
+
+          echo "Creating release $tag"
+          api_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases"
+          release_response=$(curl -s -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Content-Type: application/json" \
+            -d "$(printf '{"tag_name":"%s","name":"%s","body":"%s","draft":false,"prerelease":false}' "$tag" "$name" "$body")" "$api_url")
+          upload_url=$(echo "$release_response" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('upload_url',''))")
+          if [ -z "$upload_url" ]; then
+            echo "Failed to create release: $release_response" >&2
+            exit 1
+          fi
+          upload_url=${upload_url%\{*}
+
+          # Upload all artifacts and signature files
+          for f in *; do
+            [ -f "$f" ] || continue
+            fname=$(basename "$f")
+            echo "Uploading $fname"
+            curl --silent -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Content-Type: application/octet-stream" \
+              --data-binary @"$f" "${upload_url}?name=${fname}"
+          done
