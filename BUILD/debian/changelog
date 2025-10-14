@@ -12,7 +12,7 @@ refplat-images-docker (0.1.7) unstable; urgency=medium
 
  -- Ralph Schmieder <rschmied@cisco.com>  Tue, 14 Oct 2025 12:00:00 +0200
 
-refplat-images-docker (1.6) unstable; urgency=medium
+refplat-images-docker (0.1.6) unstable; urgency=medium
 
   * CI / release workflow and Makefile improvements
     - Added release workflow to build and publish Debian artifacts only
@@ -26,7 +26,7 @@ refplat-images-docker (1.6) unstable; urgency=medium
 
  -- Ralph Schmieder <rschmied@cisco.com>  Mon, 13 Oct 2025 22:15:20 +0200
 
-refplat-images-docker (1.5) unstable; urgency=medium
+refplat-images-docker (0.1.5) unstable; urgency=medium
 
   * better freeRADIUS container with proper logging and command line
     configuration. E.g. ARGS in the environment file can be used to provide
@@ -45,7 +45,7 @@ refplat-images-docker (1.5) unstable; urgency=medium
 
  -- Ralph Schmieder <rschmied@cisco.com>  Wed, 17 Sep 2025 13:38:28 +0200
 
-refplat-images-docker (1.4) unstable; urgency=medium
+refplat-images-docker (0.1.4) unstable; urgency=medium
 
   * moved names from .img.gz to .tar.gz (to match what the UI enforces)
   * updated to Chrome 136.0.7103.113 and Firefox 138.0.4
@@ -55,7 +55,7 @@ refplat-images-docker (1.4) unstable; urgency=medium
 
  -- Tomas Mikuska <tmikuska@cisco.com>  Tue, 20 May 2025 15:57:28 +0200
 
-refplat-images-docker (1.3) unstable; urgency=medium
+refplat-images-docker (0.1.3) unstable; urgency=medium
 
   * added Firefox policy file to supress initial tabs
   * added bash, mibs and MOTD to the net-tools container
@@ -65,7 +65,7 @@ refplat-images-docker (1.3) unstable; urgency=medium
 
  -- Ralph Schmieder <rschmied@cisco.com>  Fri, 04 Apr 2025 17:32:45 +0200
 
-refplat-images-docker (1.2) unstable; urgency=medium
+refplat-images-docker (0.1.2) unstable; urgency=medium
 
   * fixes to various containers
     memory setting, node def version
@@ -73,7 +73,7 @@ refplat-images-docker (1.2) unstable; urgency=medium
 
  -- Ralph Schmieder <rschmied@cisco.com>  Thu, 03 Apr 2025 12:06:44 +0200
 
-refplat-images-docker (1.1) unstable; urgency=medium
+refplat-images-docker (0.1.1) unstable; urgency=medium
 
   * Initial release.
 
