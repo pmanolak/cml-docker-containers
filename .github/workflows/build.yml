@@ -93,10 +93,7 @@ jobs:
 
           # create build metadata for downstream release job (omit ts; release can create its own timestamp)
           cd ..
-          cat > build-metadata.json <<EOF
-{"ts":"${ts}","version":"${new}","run_id":${{ github.run_id }},"commit":"${GITHUB_SHA}"}
-EOF
-
+          printf '%s\n' "{\"ts\":\"${ts}\",\"version\":\"${new}\",\"run_id\":${{ github.run_id }}, \"commit\":\"${GITHUB_SHA}\"}" > build-metadata.json
 
       - name: Build .deb package
         run: |
