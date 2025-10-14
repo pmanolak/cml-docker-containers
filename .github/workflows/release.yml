@@ -115,11 +115,29 @@ jobs:
           fi
           upload_url=${upload_url%\{*}
 
-          # Upload all artifacts and signature files
-          for f in *; do
+          # Create an ENV variable with upload_url for subsequent steps
+          echo "UPLOAD_URL=${upload_url}" >> $GITHUB_ENV
+
+      - name: Upload release assets (deb, changes, buildinfo)
+        uses: actions/upload-release-asset@v4
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: ./artifacts
+          asset_name: deb-artifacts-${{ inputs.build_run_id }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload individual artifacts
+        run: |
+          set -euo pipefail
+          cd artifacts
+          for f in *.deb *.changes *.buildinfo docker-refplat-images-*.tar.gz *.asc; do
             [ -f "$f" ] || continue
-            fname=$(basename "$f")
-            echo "Uploading $fname"
-            curl --silent -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Content-Type: application/octet-stream" \
-              --data-binary @"$f" "${upload_url}?name=${fname}"
+            echo "Uploading $f via upload-release-asset action"
+            echo "::group::upload $f"
+            gh api --silent -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: application/octet-stream" \
+              --input "$(pwd)/$f" \
+              "${upload_url}?name=$(basename $f)" || echo "upload failed for $f"
+            echo "::endgroup::"
           done
