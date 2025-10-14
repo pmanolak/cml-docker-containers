@@ -80,6 +80,24 @@ jobs:
           echo "Artifacts in ./artifacts:"
           ls -la artifacts || true
 
+      - name: Guard: ensure build was tag-triggered (auto path)
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ ! -f artifacts/build-metadata.json ]; then
+              echo "No build-metadata.json found; skipping release."
+              exit 0
+            fi
+            REF=$(python3 -c "import json,sys; print(json.load(open('artifacts/build-metadata.json')).get('ref',''))")
+            echo "Build metadata ref=${REF}"
+            case "$REF" in
+              refs/tags/*) echo "Build was triggered by tag ${REF#refs/tags/}" ;;
+              *) echo "Build was not triggered by a tag; skipping release."; exit 0 ;;
+            esac
+          else
+            echo "Manual run; continuing"
+          fi
+
       - name: Import GPG key
         id: import_gpg
         uses: crazy-max/ghaction-import-gpg@v6
