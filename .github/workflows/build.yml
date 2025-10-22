@@ -44,7 +44,7 @@ jobs:
       - name: Install packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends devscripts dpkg-dev build-essential fakeroot debhelper xorriso
+          sudo apt-get install -y --no-install-recommends devscripts dpkg-dev build-essential fakeroot debhelper xorriso jq
 
       - name: Bump changelog with timestamped version and exact message
         id: bump
@@ -87,11 +87,15 @@ jobs:
         run: |
           set -euo pipefail
           src_dir="BUILD/debian/refplat-images-docker"
-          ts="${{ steps.bump.outputs.ts }}"
+          ts=$(jq -r '.ts // empty' build-metadata.json || true)
+          if [ -z "${ts}" ]; then
+            echo "ERROR: ts not found in build-metadata.json; aborting tar creation" >&2
+            exit 1
+          fi
           out_tar="docker-refplat-images-${ts}.tar.gz"
           if [ -d "${src_dir}/var/lib" ]; then
-            echo "Creating ${out_tar} containing var/lib/..."
-            (cd "${src_dir}" && tar -czf "../../../docker-refplat-images-${ts}.tar.gz" var/lib)
+            echo "Creating ${out_tar} containing var/lib..."
+            (cd "${src_dir}" && tar -czf "../../../${out_tar}" var/lib)
             ls -lh "${out_tar}" || true
           else
             echo "No var/lib subtree found at ${src_dir}/var/lib — skipping tar creation."
@@ -101,7 +105,11 @@ jobs:
         run: |
           set -euo pipefail
           images_dir="BUILD/debian/refplat-images-docker/var/lib/libvirt/images"
-          ts="${{ steps.bump.outputs.ts }}"
+          ts=$(jq -r '.ts // empty' build-metadata.json || true)
+          if [ -z "${ts}" ]; then
+            echo "ERROR: ts not found in build-metadata.json; aborting ISO creation" >&2
+            exit 1
+          fi
           out_iso="$(pwd)/docker-refplat-images-${ts}.iso"
           if [ -d "${images_dir}" ]; then
             echo "Creating ${out_iso} containing node-definitions and virl-base-images at ISO root..."
