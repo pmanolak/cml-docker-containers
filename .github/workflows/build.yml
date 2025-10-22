@@ -44,7 +44,7 @@ jobs:
       - name: Install packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends devscripts dpkg-dev build-essential fakeroot debhelper
+          sudo apt-get install -y --no-install-recommends devscripts dpkg-dev build-essential fakeroot debhelper xorriso
 
       - name: Bump changelog with timestamped version and exact message
         id: bump
@@ -97,6 +97,21 @@ jobs:
             echo "No var/lib subtree found at ${src_dir}/var/lib — skipping tar creation."
           fi
 
+      - name: Pack refplat images subtree as ISO
+        run: |
+          set -euo pipefail
+          images_dir="BUILD/debian/refplat-images-docker/var/lib/libvirt/images"
+          ts="${{ steps.bump.outputs.ts }}"
+          out_iso="docker-refplat-images-${ts}.iso"
+          if [ -d "${images_dir}" ]; then
+            echo "Creating ${out_iso} containing node-definitions and virl-base-images at ISO root..."
+            # Create ISO with only the two top-level directories at the ISO root and volume label REFPLAT
+            (cd "${images_dir}" && xorriso -as mkisofs -V REFPLAT -r -J -o "../../../${out_iso}" node-definitions virl-base-images)
+            ls -lh "${out_iso}" || true
+          else
+            echo "No images directory found at ${images_dir} — skipping ISO creation."
+          fi
+
       - name: Upload packaging artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -106,5 +121,6 @@ jobs:
             *.changes
             *.buildinfo
             docker-refplat-images-*.tar.gz
+            docker-refplat-images-*.iso
             build-metadata.json
           retention-days: 10
