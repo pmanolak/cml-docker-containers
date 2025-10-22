@@ -102,7 +102,7 @@ jobs:
           echo "Looking for artifact: ${ARTIFACT_NAME}"
 
           # Find artifact id via REST API
-          ARTIFACT_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" 
+          ARTIFACT_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
             | jq -r --arg NAME "${ARTIFACT_NAME}" '.artifacts | map(select(.name==$NAME)) | .[0].id')
 
           if [ -z "${ARTIFACT_ID}" ] || [ "${ARTIFACT_ID}" = "null" ]; then
@@ -164,8 +164,9 @@ jobs:
                 --armor --output "${f}.asc" --detach-sign "$f"
           done
 
-      - name: (Optional) Debian-style sign .changes with debsign
-        if: always()
+      - name: Debian-style sign .changes with debsign
+        # if: always()
+        # if: true
         env:
           GPG_FPR: ${{ steps.import_gpg.outputs.fingerprint }}
         run: |
