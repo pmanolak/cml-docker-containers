@@ -79,7 +79,7 @@ jobs:
           echo "allow-loopback-pinentry" > "$GNUPGHOME/gpg-agent.conf"
           gpgconf --reload gpg-agent
           # sign every ISO from previous step
-          for iso in $(jq -r '.[]' <<< "${{ steps.make_iso.outputs.isos_json }}"); do
+          for iso in $(jq -r '.[]' <<< '${{ steps.make_iso.outputs.isos_json }}'); do
             [ -n "$iso" ] || continue
             [ -f "$iso" ] || { echo "Missing ISO file: $iso"; exit 1; }
             echo "Signing $iso -> ${iso}.asc"
@@ -131,7 +131,7 @@ jobs:
             gh release create "${tag}" --title "${name}" --notes "${body}" --draft
           fi
           # upload all ISOs + signatures
-          jq -r '.[]' <<< "${{ steps.make_iso.outputs.isos_json }}" | while IFS= read -r iso; do
+          jq -r '.[]' <<< '${{ steps.make_iso.outputs.isos_json }}' | while IFS= read -r iso; do
             [ -n "$iso" ] || continue
             [ -f "$iso" ] || { echo "Missing ISO file: $iso"; exit 1; }
             [ -f "${iso}.asc" ] || { echo "Missing signature: ${iso}.asc"; exit 1; }
