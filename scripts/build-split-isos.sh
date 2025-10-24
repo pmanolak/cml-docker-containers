@@ -11,7 +11,7 @@ if [ ! -d "${IMAGES_DIR}" ]; then
 fi
 
 # iterate over unique suffixes (including empty) discovered from subdirs
-# trailing whitespace trimmed with awk for portability
+# trailing whitespace trimmed with sed -E for portability
 (
   for d in ${SUBDIRS_STR}; do
     [ -f "${d}/.disabled" ] && continue

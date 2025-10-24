@@ -2,7 +2,8 @@
 all: build
 
 # define the package name
-include ../templates/pkg.mk
+TOP_REL ?= ../..
+include $(TOP_REL)/templates/pkg.mk
 export PKG
 
 HTTP_PROXY=
@@ -10,8 +11,8 @@ HTTPS_PROXY=
 NO_PROXY=
 
 include vars.mk
-include ../templates/definitions.mk
-include ../templates/clean.mk
+include $(TOP_REL)/templates/definitions.mk
+include $(TOP_REL)/templates/clean.mk
 
 .PHONY: docker
 # Build tarball with caching; allow per-module image prep via PREPARE_IMAGE_CMD

@@ -1,5 +1,6 @@
+TOP_REL := ../..
 include vars.mk
-include ../templates/build.mk
+include $(TOP_REL)/templates/build.mk
 
 XRD := xrd-control-plane-container-x86.$(VERSION).tgz
 TMPIMG := xrd-control-plane-container-x64.dockerv1.tgz

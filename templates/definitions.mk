@@ -1,4 +1,5 @@
-BASE := ../BUILD/debian/$(PKG)/var/lib/libvirt/images
+TOP_REL ?= ../..
+BASE := $(TOP_REL)/BUILD/debian/$(PKG)/var/lib/libvirt/images
 DEST := $(BASE)/virl-base-images
 NDEF := $(BASE)/node-definitions
 TAG  := $(shell echo $(VERSION) | tr '[:upper:]~.' '[:lower:]-')
@@ -15,7 +16,7 @@ definitions: $(DNT) $(NDEF)
 			echo "Image $(NAME):$(TAG) not found; skipping definitions"; \
 		else \
 			date=$$(date +"%Y-%m-%d") && \
-			cat ../templates/image-definition.tmpl | sed \
+			cat $(TOP_REL)/templates/image-definition.tmpl | sed \
 				-e 's/{{DESC}}/$(DESC)/g' \
 				-e 's/{{FULLDESC}}/$(FULLDESC)/g' \
 				-e 's/{{NAME}}/$(NAME)/g' \
@@ -31,7 +32,7 @@ definitions: $(DNT) $(NDEF)
 				-e 's/{{FULLDESC}}/$(FULLDESC)/g' \
 				-e 's/{{VERSION}}/$(VERSION)/g' \
 				-e "s/{{DATE}}/$$date/" \
-				-re 's#("image": )"\{\{IMAGENAMETAG\}\}"#\1"$(NAME):$(TAG)"#g' \
+				-Ee 's#("image": )"\{\{IMAGENAMETAG\}\}"#\1"$(NAME):$(TAG)"#g' \
 			>$(NDEF)/$(NAME).yaml; \
 		fi; \
 	fi

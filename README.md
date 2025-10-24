@@ -51,7 +51,7 @@ Other, more advanced examples and targets (usually not needed unless developing)
 make
 
 # build a single container (development)
-make -C <container-dir>
+make -C containers/<container-dir>
 
 # build ISOs grouped by per-module iso-name suffixes
 make iso
@@ -94,7 +94,7 @@ If you only need to build images (no Debian package, no ISOs), you only need `ma
 
 ## How discovery & selection work
 
-- Discovery: the build system (and CI) scans top-level subdirectories for a `Dockerfile`. Each such directory is treated as a container specification.
+- Discovery: the build system (and CI) scans `containers/` subdirectories for a `Dockerfile`. Each such directory is treated as a container specification.
 - Skip / opt-out: to exclude a container from builds (both local and CI), place an empty file named `.disabled` in that container directory (for example: `chrome/.disabled`). The top-level Makefile and per-directory recipes honor this file and will skip building and definition generation, printing a clear message.
 - Output layout: builders and templates create the YAML files and image tarballs under `BUILD/debian/<PKG>/var/lib/libvirt/images/...` so the structure matches what CML expects on the server (default `PKG=refplat-images-docker`).
 
@@ -103,7 +103,7 @@ If you only need to build images (no Debian package, no ISOs), you only need `ma
 1. Build a single container:
 
 ```sh
-make -C chrome   # example: builds chrome container and definitions
+make -C containers/chrome   # example: builds chrome container and definitions
 ```
 
 1. Build the images (but don't build any deb or ISO):
@@ -126,7 +126,7 @@ make iso
 
 **Notes:**
 
-- Per-container Makefiles usually include `../templates/build.mk`. Use an existing container (for example `chrome/` or `nginx/`) as a template when adding a new container.
+- Per-container Makefiles are symlinks to `../templates/build.mk`. Use an existing container (for example `containers/chrome/` or `containers/nginx/`) as a template when adding a new container.
 - If a `.disabled` file exists in a container directory, `make -C <dir>` will skip building that container and print a message.
 - Modules may override image preparation via `PREPARE_IMAGE_CMD` in their `Makefile`. This command replaces the default `docker buildx` step (e.g., pulling and tagging a pre-built image).
 
@@ -145,7 +145,7 @@ Example:
 
 ```sh
 # assign nginx to the "extras" ISO
-echo -extras > nginx/iso-name
+echo -extras > containers/nginx/iso-name
 
 # build split ISOs
 make iso
@@ -201,7 +201,7 @@ FULLDESC=Longer, user-facing description
 Requirements and recommendations
 
 - `Dockerfile` must exist for discovery.
-- Prefer to sym-link `../templates/build.mk` to your `Makefile` unless you have specialized needs.
+- Prefer to symlink `../templates/build.mk` as your module `Makefile` unless you have specialized needs.
 - Output expectations:
   - Image tarball (e.g., `$(NTAG).tar.gz`) must appear under `BUILD/debian/<PKG>/var/lib/libvirt/images/...`.
   - Definition YAMLs must be generated into that same area.

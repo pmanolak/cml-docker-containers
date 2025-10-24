@@ -1,5 +1,5 @@
 # list of subdirectories containing a Dockerfile (skip dirs with .disabled)
-SUBDIRS := $(shell find . -type f -name Dockerfile -exec dirname {} \; | sort -u | while read -r d; do if [ ! -f "$$d/.disabled" ]; then echo "$$d"; fi; done)
+SUBDIRS := $(shell find containers -type f -name Dockerfile -exec dirname {} \; | sort -u | while read -r d; do if [ ! -f "$$d/.disabled" ]; then echo "$$d"; fi; done)
 
 # define the package name
 include templates/pkg.mk
@@ -19,7 +19,7 @@ clean:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir clean; \
 	done
-	@rm -rf debian/$(PKG)
+	@rm -rf BUILD/debian/$(PKG)
 	@cd BUILD && ( command -v dh_clean >/dev/null 2>&1 && dh_clean || true )
 
 .PHONY: iso iso-list clean-iso

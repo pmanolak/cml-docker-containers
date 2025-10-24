@@ -8,7 +8,7 @@ else
 fi
 
 # change this if remote is not origin
-remote=origin
+remote=lwc
 
 git fetch $remote
 git tag --list --format='%(refname:short) %(objectname) %(taggerdate) %(describe)'
