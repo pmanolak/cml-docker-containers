@@ -15,8 +15,8 @@ fi
 (
   for d in ${SUBDIRS_STR}; do
     [ -f "${d}/.disabled" ] && continue
-    if [ -f "${d}/disk-name" ]; then
-      sfx=$(tr -d '\r\n' <"${d}/disk-name" | awk '{ sub(/[[:space:]]+$/, ""); print }')
+    if [ -f "${d}/iso-name" ]; then
+      sfx=$(tr -d '\r\n' <"${d}/iso-name" | sed -E 's/[[:space:]]+$//')
     else
       sfx=""
     fi
@@ -31,8 +31,8 @@ fi
 
   for d in ${SUBDIRS_STR}; do
     [ -f "${d}/.disabled" ] && continue
-    if [ -f "${d}/disk-name" ]; then
-      dsfx=$(tr -d '\r\n' <"${d}/disk-name" | awk '{ sub(/[[:space:]]+$/, ""); print }')
+    if [ -f "${d}/iso-name" ]; then
+      dsfx=$(tr -d '\r\n' <"${d}/iso-name" | sed -E 's/[[:space:]]+$//')
     else
       dsfx=""
     fi

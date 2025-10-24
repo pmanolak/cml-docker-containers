@@ -1,8 +1,8 @@
 .PHONY: all
 all: build
 
-# the name of our package
-PKG := refplat-images-docker
+# define the package name
+include ../templates/pkg.mk
 export PKG
 
 HTTP_PROXY=
