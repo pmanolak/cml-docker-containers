@@ -276,7 +276,36 @@ This method ensures that the `docker-compose` application runs in its intended e
 
 ### IOS XRd
 
-XRd builds require a binary XRd container from Cisco (licensing). Place the downloaded file (for example `xrd-control-plane-container-x86.<version>.tgz`) into the `xrd/` directory and ensure `vars.mk` matches the version. The build process will extract and process that archive.
+XRd builds require a binary XRd container from [Cisco's software download page](https://software.cisco.com/download/home/286331236/type). Place the downloaded file (for example `xrd-control-plane-container-x86.<version>.tgz`) into the `containers/xrd/` directory and ensure `vars.mk` matches the version. Also, remove the `.disabled` file in that directory. The build process will extract and process that archive and, as a result, creates a reference platform ISO file.
+
+> [!IMPORTANT]
+> To download the XRd image, a valid Cisco.com login and proper entitlement is required!
+
+If the goal is to just build the IOS XRd container image and definitions, here are the steps. Log into your CML controller either via Cockpit / Terminal or via SSH.
+
+```bash
+# Run these steps on your CML host as user sysadmin!
+
+apt-get install make  #  (in case it's not there, by default it is not)
+git clone https://github.com/CiscoLearning/cml-docker-containers.git
+cd cml-docker-containers/
+
+# Wherever your XRd image from downloads is, need to adapt
+# if you upload the image via UI, then it's in /var/local/virl2/dropfolder
+cp ~/xrd-control-plane-container-x86.25.2.2.tgz containers/xrd/
+
+# Disable all other container images / definitions to speed things up
+for d in containers/*; do touch $d/.disabled; done
+
+# Explicitly enable XRd, split up into a different ISO name and build the ISO
+# sudo needed as the sysadmin user by default is not in the docker group
+rm -rf containers/xrd/.disabled
+echo "-xrd" >containers/xrd/iso-name
+sudo make iso 
+
+# install ISO
+sudo copy-refplat-iso-to-disk.sh docker-refplat-images-xrd-*.iso 
+```
 
 ### Netflow
 
