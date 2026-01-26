@@ -89,7 +89,7 @@ device:
       - eth3
     has_loopback_zero: false
     default_count: 1
-    serial_ports: 2
+    serial_ports: 1
 boot:
   timeout: 30
   completed:
