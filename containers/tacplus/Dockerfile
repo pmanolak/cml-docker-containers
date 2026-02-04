@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim AS builder
+FROM debian:trixie-slim AS builder
 
 ARG version
 
@@ -14,10 +14,10 @@ WORKDIR /opt
 RUN curl -k -O "https://shrubbery.net/pub/tac_plus/tacacs-${version}.tar.gz" && tar xzf tacacs-${version}.tar.gz
 
 WORKDIR /opt/tacacs-${version}
-RUN ./configure --prefix=/usr/local && make && make install && rm /opt/tacacs-${version}.tar.gz
+RUN ./configure --without-libwrap --prefix=/usr/local && make && make install && rm /opt/tacacs-${version}.tar.gz
 
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 COPY --from=builder /usr/local/ /usr/local/
 
 # library dependencies... just copy them over

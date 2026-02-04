@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ARG uid
 ARG version
@@ -9,9 +9,9 @@ COPY google-chrome.gpg /usr/share/keyrings/google-chrome.gpg
 RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >/etc/apt/sources.list.d/google-chrome.list
 RUN apt-get update && apt-get upgrade -y && \
   DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
-  software-properties-common \
   apt-transport-https \
-  curl ca-certificates \
+  curl \
+  ca-certificates \
   i3 \
   xdotool \
   google-chrome-stable=${version} && \

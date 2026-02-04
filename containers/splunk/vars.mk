@@ -1,4 +1,4 @@
-VERSION      := 10.0
+VERSION      := 10.0.3
 NAME         := splunk
 DESC         := Splunk Enterprise
 FULLDESC     := $(DESC) $(VERSION)

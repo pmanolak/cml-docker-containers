@@ -1,4 +1,4 @@
-VERSION      := 3.2.1b1
+VERSION      := $(shell ./get_latest_version.sh)
 NAME         := radius
 DESC         := FreeRadius server
 FULLDESC     := $(DESC) $(VERSION)

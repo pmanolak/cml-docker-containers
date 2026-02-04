@@ -1,4 +1,4 @@
-VERSION      := 1.0.0b1
+VERSION      := $(shell ./get_latest_version.sh)
 NAME         := net-tools
 DESC         := Networking tools node
 FULLDESC     := $(DESC) $(VERSION)
