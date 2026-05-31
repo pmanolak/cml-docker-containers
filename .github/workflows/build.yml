@@ -13,6 +13,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+
+      - name: Free disk space
+        uses: ./.github/actions/free-disk-space
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+          docker-images: false
+
       - name: Install Crane
         # uses: imjasonh/setup-crane@v0.1
         uses: ./.github/actions/setup-crane
@@ -22,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           containers=()
-          for d in ./*/; do
+          for d in ./containers/*/; do
             [ -d "$d" ] || continue
             dir="${d#./}"
             dir="${dir%/}"
